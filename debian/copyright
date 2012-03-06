@@ -1,0 +1,28 @@
+This package was debianized by Emmanuel QUEMENER <emmanuel.quemener@free.fr> on
+Thu, 01 Jan 2009 22:15:04 +0100.
+
+It was downloaded from http://ahorvath.web.cern.ch/ahorvath/mbw/
+
+	Copyright (C) 2008 Andras Horvath <Andras.Horvath@cern.ch>
+
+License:
+
+Permission to use and copy is granted subject to the terms of the
+"GNU Lesser General Public License" (LGPL) as published by the
+Free Software Foundation; either version 2.1 of the License,
+or any later version.  In addition, Julius O. Smith III requests
+that a copy of any modified files be sent by email to
+jos@ccrma.stanford.edu so that he may incorporate them into the
+CCRMA version.
+
+   This library is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   Lesser General Public License for more details.
+
+On Debian systems, the text of the GPL is available in the file:
+/usr/share/common-licenses/LGPL
+
+The Debian packaging is (C) 2009, Emmanuel QUEMENER <emmanuel.quemener@free.fr>
+and is licensed under the GPL, see `/usr/share/common-licenses/GPL'.
+
