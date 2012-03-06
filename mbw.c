@@ -99,10 +99,10 @@ double worker(unsigned long long asize, long *a, long *b, int type, unsigned lon
 	} else if(type==2) { /* memcpy block test */
 		gettimeofday(&starttime, NULL);
 		for(t=0; t<array_bytes; t+=block_size) {
-			c=mempcpy(b,a,block_size);	
+			b=mempcpy(b,a,block_size);	
 		}
 		if(t>array_bytes){
-			c=mempcpy(b,a,t-array_bytes);	
+			b=mempcpy(b,a,t-array_bytes);	
 		}
 		gettimeofday(&endtime, NULL);
 	} else { /* dumb test */
