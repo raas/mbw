@@ -86,7 +86,6 @@ double worker(unsigned long long asize, long *a, long *b, int type, unsigned lon
 	struct timeval starttime,endtime;
 	double te;
 	unsigned int long_size=sizeof(long);
-	long *c; /* where are we in test=2? */
 	/* array size in bytes */
 	unsigned long long array_bytes=asize*long_size;
 
