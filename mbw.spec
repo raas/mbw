@@ -1,12 +1,12 @@
 Summary: Memory bandwidth benchmark
 Name: mbw
-Version: 1.1
+Version: 1.2
 Release: 1
 License: LGPL
 Buildroot: %{_tmppath}/%{name}-buildroot
 Group: System Environment/Base
 Source: %{name}.tar.gz
-Packager: Andras.Horvath@cern.ch
+Packager: andras.horvath@gmail.com
 
 %description
 Test memory copy bandwidth (single thread). Switch off swap or make sure array size does not exceed available free RAM.
@@ -33,6 +33,9 @@ rm -rf %{buildroot}
 %{_mandir}/man1/mbw.1.gz
 
 %changelog
+* Sun Mar 11 2012 Andras Horvath <andras.horvath@gmail.com> 1.2-1
+- Fix MCBLOCK test: actually copy to the full buffer, not just its first $blocksize.
+
 * Tue Jul 07 2006 Andras Horvath <Andras.Horvath@cern.ch> 1.1-1
 - separate array initialization from work -> faster execution
 - getopt() options parsing: suppress average, specific tests only, no. runs 
