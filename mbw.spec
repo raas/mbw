@@ -1,6 +1,6 @@
 Summary: Memory bandwidth benchmark
 Name: mbw
-Version: 1.2
+Version: 1.3
 Release: 1
 License: LGPL
 Buildroot: %{_tmppath}/%{name}-buildroot
@@ -33,6 +33,10 @@ rm -rf %{buildroot}
 %{_mandir}/man1/mbw.1.gz
 
 %changelog
+* Thu Oct 03 2013 James Slocum <j.m.slocum@gmail.com> 1.3-1
+- Fix MCBLOCK test: copy from the full source buffer, not just its first $blocksize.
+- Fix MCBLOCK test: fixed segfault caused by for() going out of bounds
+
 * Sun Mar 11 2012 Andras Horvath <andras.horvath@gmail.com> 1.2-1
 - Fix MCBLOCK test: actually copy to the full buffer, not just its first $blocksize.
 
