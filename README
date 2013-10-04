@@ -1,6 +1,7 @@
 MBW determines the "copy" memory bandwidth available to userspace programs. Its simplistic approach models that of real applications. It is not tuned to extremes and it is not aware of hardware architecture, just like your average software package.
 
 2006, 2012 Andras.Horvath atnospam gmail.com
+2013 j.m.slocum atnospam gmail.com
 
 http://github.com/raas/mbw
 

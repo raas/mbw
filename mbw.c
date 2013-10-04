@@ -27,6 +27,8 @@
  * MBW memory bandwidth benchmark
  *
  * 2006, 2012 Andras.Horvath@gmail.com
+ * 2013 j.m.slocum@gmail.com 
+ * (Special thanks to Stephen Pasich)
  *
  * http://github.com/raas/mbw
  *
@@ -97,6 +99,7 @@ double worker(unsigned long long asize, long *a, long *b, int type, unsigned lon
     unsigned int long_size=sizeof(long);
     /* array size in bytes */
     unsigned long long array_bytes=asize*long_size;
+    unsigned int advance=block_size/long_size;
 
     if(type==1) { /* memcpy test */
         /* timer starts */
@@ -106,11 +109,11 @@ double worker(unsigned long long asize, long *a, long *b, int type, unsigned lon
         gettimeofday(&endtime, NULL);
     } else if(type==2) { /* memcpy block test */
         gettimeofday(&starttime, NULL);
-        for(t=0; t<array_bytes; t+=block_size) {
+        for (t=array_bytes; t >= block_size; t-=block_size, a+=advance){
             b=mempcpy(b, a, block_size);
         }
-        if(t>array_bytes) {
-            b=mempcpy(b, a, t-array_bytes);
+        if(t) {
+            b=mempcpy(b, a, t);
         }
         gettimeofday(&endtime, NULL);
     } else { /* dumb test */
