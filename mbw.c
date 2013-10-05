@@ -99,7 +99,6 @@ double worker(unsigned long long asize, long *a, long *b, int type, unsigned lon
     unsigned int long_size=sizeof(long);
     /* array size in bytes */
     unsigned long long array_bytes=asize*long_size;
-    unsigned int advance=block_size/long_size;
 
     if(type==1) { /* memcpy test */
         /* timer starts */
@@ -108,12 +107,14 @@ double worker(unsigned long long asize, long *a, long *b, int type, unsigned lon
         /* timer stops */
         gettimeofday(&endtime, NULL);
     } else if(type==2) { /* memcpy block test */
+        char* aa = (char*)a;
+        char* bb = (char*)b;
         gettimeofday(&starttime, NULL);
-        for (t=array_bytes; t >= block_size; t-=block_size, a+=advance){
-            b=mempcpy(b, a, block_size);
+        for (t=array_bytes; t >= block_size; t-=block_size, a+=block_size){
+            bb=mempcpy(bb, aa, block_size);
         }
         if(t) {
-            b=mempcpy(b, a, t);
+            bb=mempcpy(bb, aa, t);
         }
         gettimeofday(&endtime, NULL);
     } else { /* dumb test */
