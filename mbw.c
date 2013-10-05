@@ -110,7 +110,7 @@ double worker(unsigned long long asize, long *a, long *b, int type, unsigned lon
         char* aa = (char*)a;
         char* bb = (char*)b;
         gettimeofday(&starttime, NULL);
-        for (t=array_bytes; t >= block_size; t-=block_size, a+=block_size){
+        for (t=array_bytes; t >= block_size; t-=block_size, aa+=block_size){
             bb=mempcpy(bb, aa, block_size);
         }
         if(t) {
