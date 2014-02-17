@@ -28,6 +28,9 @@
 #define TEST_DUMB 1
 #define TEST_MCBLOCK 2
 
+/* version number */
+#define VERSION "1.4"
+
 /*
  * MBW memory bandwidth benchmark
  *
@@ -51,6 +54,7 @@
 
 void usage()
 {
+    printf("mbw memory benchmark v%s, https://github.com/raas/mbw\n", VERSION);
     printf("Usage: mbw [options] array_size_in_MiB\n");
     printf("Options:\n");
     printf("	-n: number of runs per test\n");
