@@ -23,6 +23,11 @@
 /* default block size for test 2, in bytes */
 #define DEFAULT_BLOCK_SIZE 262144
 
+/* test types */
+#define TEST_MEMCPY 0
+#define TEST_DUMB 1
+#define TEST_MCBLOCK 2
+
 /*
  * MBW memory bandwidth benchmark
  *
@@ -50,9 +55,9 @@ void usage()
     printf("Options:\n");
     printf("	-n: number of runs per test\n");
     printf("	-a: Don't display average\n");
-    printf("	-t0: memcpy test\n");
-    printf("	-t1: dumb (b[i]=a[i] style) test\n");
-    printf("	-t2 : memcpy test with fixed block size\n");
+    printf("	-t%d: memcpy test\n", TEST_MEMCPY);
+    printf("	-t%d: dumb (b[i]=a[i] style) test\n", TEST_DUMB);
+    printf("	-t%d: memcpy test with fixed block size\n", TEST_MCBLOCK);
     printf("	-b <size>: block size in bytes for -t2 (default: %d)\n", DEFAULT_BLOCK_SIZE);
     printf("	-q: quiet (print statistics only)\n");
     printf("(will then use two arrays, watch out for swapping)\n");
@@ -100,13 +105,13 @@ double worker(unsigned long long asize, long *a, long *b, int type, unsigned lon
     /* array size in bytes */
     unsigned long long array_bytes=asize*long_size;
 
-    if(type==1) { /* memcpy test */
+    if(type==TEST_MEMCPY) { /* memcpy test */
         /* timer starts */
         gettimeofday(&starttime, NULL);
         memcpy(b, a, array_bytes);
         /* timer stops */
         gettimeofday(&endtime, NULL);
-    } else if(type==2) { /* memcpy block test */
+    } else if(type==TEST_MCBLOCK) { /* memcpy block test */
         char* aa = (char*)a;
         char* bb = (char*)b;
         gettimeofday(&starttime, NULL);
@@ -117,7 +122,7 @@ double worker(unsigned long long asize, long *a, long *b, int type, unsigned lon
             bb=mempcpy(bb, aa, t);
         }
         gettimeofday(&endtime, NULL);
-    } else { /* dumb test */
+    } else if(type==TEST_DUMB) { /* dumb test */
         gettimeofday(&starttime, NULL);
         for(t=0; t<asize; t++) {
             b[t]=a[t];
@@ -142,13 +147,13 @@ double worker(unsigned long long asize, long *a, long *b, int type, unsigned lon
 void printout(double te, double mt, int type)
 {
     switch(type) {
-        case 0:
+        case TEST_MEMCPY:
             printf("Method: MEMCPY\t");
             break;
-        case 1:
+        case TEST_DUMB:
             printf("Method: DUMB\t");
             break;
-        case 2:
+        case TEST_MCBLOCK:
             printf("Method: MCBLOCK\t");
             break;
     }
