@@ -3,8 +3,6 @@
  */
 #define _GNU_SOURCE
 
-#define CONFIG_MT
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -15,10 +13,7 @@
 #include <time.h>
 #include <string.h>
 #include <unistd.h>
-
-#ifdef CONFIG_MT
 #include <pthread.h>
-#endif
 
 /* how many runs to average by default */
 #define DEFAULT_NR_LOOPS 10
@@ -73,28 +68,21 @@ static int nr_loops=DEFAULT_NR_LOOPS;
 static double mt = 0;
 /* number of threads */
 static int mt_num = 1;
+/* number of cores */
+static int num_cores = 0;
 /* fixed memcpy block size for -t2 */
 unsigned long long block_size=DEFAULT_BLOCK_SIZE;
 unsigned long long asize=0; /* array size (elements in array) */
 
-#ifdef CONFIG_MT
-/* for running multiple copies mbw in separate threads concurrently. */
-
-
 void run_test(int tid);
 
 #define CONFIG_MT_MAX_THREADS   4
-typedef struct mt_data {
-    int ret;
-    int val;
-} mt_data_t;
 
 double *data[CONFIG_MT_MAX_THREADS][MAX_TESTS];
-static mt_data_t            mt_data[CONFIG_MT_MAX_THREADS];
 static pthread_t            mt_threads[CONFIG_MT_MAX_THREADS];
 static pthread_barrier_t    mt_barrier;
 
-static void barrier(void)
+static void mt_bar(void)
 {
     int ret = 0;
     if (mt_num == 1) return;
@@ -105,27 +93,22 @@ static void barrier(void)
     }
 }
 
-static int mt_bar(int tid)
-{
-    int ret = pthread_barrier_wait(&mt_barrier);
-    if (ret != PTHREAD_BARRIER_SERIAL_THREAD && ret != 0) {
-        printf("barrier wait error %d\n", ret);
-        mt_data[tid].ret = ret;
-        return 1;
-    }
-    return 0;
-}
-
 void *  mt_worker(void *arg)
 {
     int tid = (arg - (void *)mt_threads) / sizeof(pthread_t);
     int ret = 0;
-     
-    printf("worker thread %d\n", tid);
-
-    if (mt_bar(tid)) return 0;
+    cpu_set_t cs;
+    CPU_ZERO(&cs);
+    CPU_SET(tid, &cs);
+    ret = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cs);
+    if (ret) {
+        printf("Binding thread %d to core %d failed\n", tid, tid);
+        exit(1);
+    }
+    printf("Bound thread %d to core %d\n", tid, tid);
+    mt_bar();
     run_test(tid);
-    if (mt_bar(tid)) return 0;
+    mt_bar();
 
     return 0;
 }
@@ -141,10 +124,24 @@ static int mt_init(void)
     int ret = 0;
     int i = 0;
     int j = 0;
-    printf("thread number %d\n", mt_num);
+
+    printf("Thread number %d\n", mt_num);
     ret = pthread_barrier_init(&mt_barrier, 0, mt_num);
     if (ret) { printf("init barrier error %d\n", ret); return ret; }
 
+    cpu_set_t cs;
+    CPU_ZERO(&cs);
+    sched_getaffinity(0, sizeof(cs), &cs);
+
+    /* assuming 8 cores max */
+    for (i = 0; i < 8; i++)  {
+        if (CPU_ISSET(i, &cs)) {
+            printf("core %d\n", i);
+            num_cores++;
+        }
+    }
+
+    printf("We have %d cores \n", num_cores);
     for (i = 0; i < mt_num; i++) {
         ret = pthread_create(&mt_threads[i], 0, mt_worker, &mt_threads[i]);
         if (ret) return ret;
@@ -161,7 +158,7 @@ static int mt_init(void)
 }
 
 void printout(double te, double mt, int type);
-static void mt_start(void)
+static void mt_wait(void)
 {
     int i = 0;
     int j = 0;
@@ -170,12 +167,14 @@ static void mt_start(void)
     for (i = 0; i < mt_num; i++) {
         pthread_join(mt_threads[i], 0);
     }
+
     for (i = 0; i < mt_num; i++) {
         printf("\n-- result for thread %d --\n", i);
         for (j = 0; j < MAX_TESTS; j++) {
             sum = 0;
             for (k = 0; k < nr_loops; k++) {
                 if (data[i][j][k] != 0) {
+                    printf("%d\t", k);
                     printout(data[i][j][k], mt, j);
                     sum += data[i][j][k];
                 }
@@ -191,11 +190,6 @@ static void mt_start(void)
     }
 }
 
-#else
-#define barrier()
-#define mt_collect_data(a, b, c, d)
-#endif
-
 void usage()
 {
     printf("mbw memory benchmark v%s, https://github.com/raas/mbw\n", VERSION);
@@ -207,9 +201,7 @@ void usage()
     printf("	-t%d: dumb (b[i]=a[i] style) test\n", TEST_DUMB);
     printf("	-t%d: memcpy test with fixed block size\n", TEST_MCBLOCK);
     printf("	-b <size>: block size in bytes for -t2 (default: %d)\n", DEFAULT_BLOCK_SIZE);
-#ifdef CONFIG_MT
     printf("\t-T <num_threads>: running the benchmark concurrently in multiple threads\n");
-#endif
     printf("	-q: quiet (print statistics only)\n");
     printf("(will then use two arrays, watch out for swapping)\n");
     printf("'Bandwidth' is amount of data copied over the time this operation took.\n");
@@ -258,16 +250,19 @@ double worker(unsigned long long asize, long *a, long *b, int type, unsigned lon
 
     if(type==TEST_MEMCPY) { /* memcpy test */
         /* timer starts */
-        barrier();
+        mt_bar();
+
         gettimeofday(&starttime, NULL);
         memcpy(b, a, array_bytes);
         /* timer stops */
         gettimeofday(&endtime, NULL);
-        barrier();
+
+        mt_bar();
     } else if(type==TEST_MCBLOCK) { /* memcpy block test */
         char* aa = (char*)a;
         char* bb = (char*)b;
-        barrier();
+        mt_bar();
+
         gettimeofday(&starttime, NULL);
         for (t=array_bytes; t >= block_size; t-=block_size, aa+=block_size){
             bb=mempcpy(bb, aa, block_size);
@@ -276,15 +271,18 @@ double worker(unsigned long long asize, long *a, long *b, int type, unsigned lon
             bb=mempcpy(bb, aa, t);
         }
         gettimeofday(&endtime, NULL);
-        barrier();
+
+        mt_bar();
     } else if(type==TEST_DUMB) { /* dumb test */
-        barrier();
+        mt_bar();
+        
         gettimeofday(&starttime, NULL);
         for(t=0; t<asize; t++) {
             b[t]=a[t];
         }
         gettimeofday(&endtime, NULL);
-        barrier();
+
+        mt_bar();
     }
 
     te=((double)(endtime.tv_sec*1000000-starttime.tv_sec*1000000+endtime.tv_usec-starttime.tv_usec))/1000000;
@@ -327,33 +325,19 @@ void run_test(int tid)
     long *b = make_array(asize);
 
     unsigned long testno = 0;
-    double te, te_sum;
+    double te; 
     int i = 0;
 
     for (testno = 0; testno < MAX_TESTS; testno++) {
-        te_sum = 0;
         if (tests[testno]) {
             for (i = 0; i < nr_loops; i++) {
                 te = worker(asize, a, b, testno, block_size);
-                te_sum += te;
-                if (mt_num == 1) {
-                    printf("%d\t", i);
-                    printout(te, mt, testno);
-                } else {
                     mt_collect_data(tid, i, testno, te);
-                }
             }
 
-            if (showavg) {
-                if (mt_num == 1) {
-                    printf("AVG\t");
-                    printout(te_sum / nr_loops, mt, testno);
-                } else {
-
-                }
-            }
         }
     }
+
     free(a);
     free(b);
     return;
@@ -406,7 +390,6 @@ int main(int argc, char **argv)
             case 'q': /* quiet */
                 quiet=1;
                 break;
-#ifdef CONFIG_MT
             case 'T': /* multithreaded */
                 mt_num=strtoul(optarg, (char **)NULL, 10);
                 if (mt_num <= 0 || mt_num > CONFIG_MT_MAX_THREADS) {
@@ -414,7 +397,6 @@ int main(int argc, char **argv)
                     exit(1);
                 }
                 break;
-#endif
             default:
                 break;
         }
@@ -458,20 +440,12 @@ int main(int argc, char **argv)
     }
 
 
-#ifdef CONFIG_MT
-    if (mt_num != 1) {
-        if (mt_init()) {
-            printf("mt init error\n");
-            exit(1);
-        }
-        mt_start();
-    } else {
-        run_test(0);
+    if (mt_init()) {
+        printf("mt init error\n");
+        exit(1);
     }
-#else
-    run_test(0);
+    mt_wait();
 
-#endif
     return 0;
 }
 
