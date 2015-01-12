@@ -125,7 +125,7 @@ static int mt_init(void)
     int i = 0;
     int j = 0;
 
-    printf("Thread number %d\n", mt_num);
+    printf("Number of Threads %d\n", mt_num);
     ret = pthread_barrier_init(&mt_barrier, 0, mt_num);
     if (ret) { printf("init barrier error %d\n", ret); return ret; }
 
@@ -136,7 +136,7 @@ static int mt_init(void)
     /* assuming 8 cores max */
     for (i = 0; i < 8; i++)  {
         if (CPU_ISSET(i, &cs)) {
-            printf("core %d\n", i);
+            printf("Core %d\n", i);
             num_cores++;
         }
     }
@@ -314,7 +314,8 @@ void printout(double te, double mt, int type)
     }
     printf("Elapsed: %.5f\t", te);
     printf("MiB: %.5f\t", mt);
-    printf("Copy: %.3f MiB/s\n", mt/te);
+    printf("Copy: %.3f MiB/s", mt/te);
+    printf("  %.3f Mb/s\n", (mt * 8 * 1024 * 1024) / 1000 / 1000 / te);
     return;
 }
 
