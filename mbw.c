@@ -70,6 +70,7 @@ static double mt = 0;
 static int mt_num = 1;
 /* number of cores */
 static int num_cores = 0;
+static int core_factor = 0;
 /* fixed memcpy block size for -t2 */
 unsigned long long block_size=DEFAULT_BLOCK_SIZE;
 unsigned long long asize=0; /* array size (elements in array) */
@@ -99,13 +100,13 @@ void *  mt_worker(void *arg)
     int ret = 0;
     cpu_set_t cs;
     CPU_ZERO(&cs);
-    CPU_SET(tid, &cs);
+    CPU_SET(tid * core_factor, &cs);
     ret = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cs);
     if (ret) {
-        printf("Binding thread %d to core %d failed\n", tid, tid);
+        printf("Binding thread %d to core %d failed\n", tid, tid * core_factor);
         exit(1);
     }
-    printf("Bound thread %d to core %d\n", tid, tid);
+    printf("Bound thread %d to core %d\n", tid, tid * core_factor);
     mt_bar();
     run_test(tid);
     mt_bar();
@@ -142,6 +143,12 @@ static int mt_init(void)
     }
 
     printf("We have %d cores \n", num_cores);
+    
+    if (num_cores < mt_num) {
+        printf("The number of available cores %d is less than required threads %d\n", num_cores, mt_num);
+        exit(1);
+    }
+
     for (i = 0; i < mt_num; i++) {
         ret = pthread_create(&mt_threads[i], 0, mt_worker, &mt_threads[i]);
         if (ret) return ret;
@@ -151,6 +158,7 @@ static int mt_init(void)
                 printf("alloc data error\n");
                 return 1;
             }
+            bzero(data[i][j], sizeof(double) * nr_loops);
         }
     }
 
@@ -164,6 +172,7 @@ static void mt_wait(void)
     int j = 0;
     int k = 0;
     double sum = 0;
+
     for (i = 0; i < mt_num; i++) {
         pthread_join(mt_threads[i], 0);
     }
@@ -180,10 +189,11 @@ static void mt_wait(void)
                 }
             }
 
-            if (showavg) {
+            if (showavg && sum != 0) {
                 printf("AVG\t");
                 printout(sum / nr_loops, mt, j);
             }
+
         }
 
         printf("-- end of result for thread %d -- \n", i);
