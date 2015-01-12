@@ -3,9 +3,11 @@ NAME=mbw
 TARFILE=${NAME}.tar.gz
 
 mbw: mbw.c
+	$(CC) -c -o mbw.o mbw.c
+	$(CC) -o mbw mbw.o -lpthread 
 
 clean:
-	rm -f mbw
+	rm -f mbw mbw.o
 	rm -f ${NAME}.tar.gz
 
 ${TARFILE}: clean
