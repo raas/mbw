@@ -70,7 +70,7 @@ static double mt = 0;
 static int mt_num = 1;
 /* number of cores */
 static int num_cores = 0;
-static int core_factor = 0;
+static int core_factor = 1;
 /* fixed memcpy block size for -t2 */
 unsigned long long block_size=DEFAULT_BLOCK_SIZE;
 unsigned long long asize=0; /* array size (elements in array) */
