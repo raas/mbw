@@ -19,15 +19,16 @@
 #define DEFAULT_NR_LOOPS 10
 
 /* we have 3 tests at the moment */
-#define MAX_TESTS 3
+#define MAX_TESTS 4 
 
 /* default block size for test 2, in bytes */
 #define DEFAULT_BLOCK_SIZE 262144
 
 /* test types */
-#define TEST_MEMCPY 0
-#define TEST_DUMB 1
-#define TEST_MCBLOCK 2
+#define TEST_MEMCPY         0
+#define TEST_DUMB           1
+#define TEST_MCBLOCK        2
+#define TEST_ARCH_MEMCPY    3 
 
 /* version number */
 #define VERSION "1.4"
@@ -76,6 +77,19 @@ unsigned long long block_size=DEFAULT_BLOCK_SIZE;
 unsigned long long asize=0; /* array size (elements in array) */
 
 void run_test(int tid);
+
+__attribute__((noinline)) void *arch_memcpy(void *dest, const void *src, size_t n)
+{
+    asm volatile ("movq     %rdi, %rax\n\t"
+                  "movq     %rdx, %rcx\n\t"
+                  "shrq     $3, %rcx\n\t"
+                  "andl     $7, %edx\n\t"
+                  "rep      movsq\n\t"
+                  "movl     %edx, %ecx\n\t"
+                  "rep      movsb\n\t"
+            );
+    return;
+}
 
 #define CONFIG_MT_MAX_THREADS   4
 
@@ -293,6 +307,13 @@ double worker(unsigned long long asize, long *a, long *b, int type, unsigned lon
         gettimeofday(&endtime, NULL);
 
         mt_bar();
+
+    } else if (type == TEST_ARCH_MEMCPY) {
+        mt_bar();
+        gettimeofday(&starttime, NULL);
+        arch_memcpy(b, a, array_bytes);
+        gettimeofday(&endtime, NULL);
+        mt_bar();
     }
 
     te=((double)(endtime.tv_sec*1000000-starttime.tv_sec*1000000+endtime.tv_usec-starttime.tv_usec))/1000000;
@@ -366,10 +387,10 @@ int main(int argc, char **argv)
     unsigned long testno;
 
     /* options */
-
-    tests[0]=0;
-    tests[1]=0;
-    tests[2]=0;
+   
+    for (i = 0; i < MAX_TESTS; i++) {
+        tests[i] = 0;
+    }
 
     while((o=getopt(argc, argv, "haqn:t:b:T:")) != EOF) {
         switch(o) {
@@ -414,10 +435,14 @@ int main(int argc, char **argv)
     }
 
     /* default is to run all tests if no specific tests were requested */
-    if( (tests[0]+tests[1]+tests[2]) == 0) {
-        tests[0]=1;
-        tests[1]=1;
-        tests[2]=1;
+    int all_tests = 0;
+    for (i = 0; i< MAX_TESTS; i++) {
+        all_tests += tests[i]; 
+    }
+    if (all_tests == 0) {
+        for (i = 0; i < MAX_TESTS; i++) {
+            tests[i] = 1;
+        }
     }
 
     if(optind<argc) {

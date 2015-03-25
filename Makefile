@@ -1,4 +1,4 @@
-#CFLAGS=-O2 -Wall -g
+CFLAGS=-O2 -Wall -g -ftree-vectorize
 NAME=mbw
 TARFILE=${NAME}.tar.gz
 
