@@ -80,6 +80,7 @@ void run_test(int tid);
 
 __attribute__((noinline)) void *arch_memcpy(void *dest, const void *src, size_t n)
 {
+    register void *ret asm ("rax") = dest;
     asm volatile ("movq     %rdi, %rax\n\t"
                   "movq     %rdx, %rcx\n\t"
                   "shrq     $3, %rcx\n\t"
@@ -88,7 +89,7 @@ __attribute__((noinline)) void *arch_memcpy(void *dest, const void *src, size_t 
                   "movl     %edx, %ecx\n\t"
                   "rep      movsb\n\t"
             );
-    return;
+    return ret;
 }
 
 #define CONFIG_MT_MAX_THREADS   4
@@ -342,6 +343,9 @@ void printout(double te, double mt, int type)
         case TEST_MCBLOCK:
             printf("Method: MCBLOCK\t");
             break;
+        case TEST_ARCH_MEMCPY:
+            printf("Method: AMEMCPY\t");
+            break;
     }
     printf("Elapsed: %.5f\t", te);
     printf("MiB: %.5f\t", mt);
@@ -380,9 +384,7 @@ void run_test(int tid)
 int main(int argc, char **argv)
 {
     unsigned int long_size=0;
-    double te, te_sum; /* time elapsed */
     int i;
-    long *a, *b; /* the two arrays to be copied from/to */
     int o; /* getopt options */
     unsigned long testno;
 
