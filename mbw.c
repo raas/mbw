@@ -56,7 +56,8 @@
 
 
 
-
+static const char *test_name[MAX_TESTS] = {
+    "MEMCPY", "DUMB", "MCBLOCK", "AMEMCPY" };
 /* whats tests to run (-t x) */
 static int tests[MAX_TESTS];
 /* suppress extra messages */
@@ -97,6 +98,7 @@ __attribute__((noinline)) void *arch_memcpy(void *dest, const void *src, size_t 
 double *data[CONFIG_MT_MAX_THREADS][MAX_TESTS];
 static pthread_t            mt_threads[CONFIG_MT_MAX_THREADS];
 static pthread_barrier_t    mt_barrier;
+static double               mt_ave[CONFIG_MT_MAX_THREADS][MAX_TESTS];
 
 static void mt_bar(void)
 {
@@ -207,6 +209,7 @@ static void mt_wait(void)
             if (showavg && sum != 0) {
                 printf("AVG\t");
                 printout(sum / nr_loops, mt, j);
+                mt_ave[i][j] = (mt * 8 * 1024 * 1024) / 1000 / 1000 / (sum / nr_loops); 
             }
 
         }
@@ -384,7 +387,7 @@ void run_test(int tid)
 int main(int argc, char **argv)
 {
     unsigned int long_size=0;
-    int i;
+    int i, j;
     int o; /* getopt options */
     unsigned long testno;
 
@@ -483,6 +486,15 @@ int main(int argc, char **argv)
         exit(1);
     }
     mt_wait();
+    for (j = 0; j < MAX_TESTS; j++) {      
+        double total = 0;
+        for (i = 0; i < mt_num; i++) {
+            total += mt_ave[i][j];
+        }
+        if (total != 0) {
+            printf("Test %s\t %d Thread(s) AVG Total COPY %f Mb/s\n", test_name[j], mt_num, total);
+        }
+    }
 
     return 0;
 }
