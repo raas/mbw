@@ -13,20 +13,22 @@
 #include <time.h>
 #include <string.h>
 #include <unistd.h>
+#include <pthread.h>
 
 /* how many runs to average by default */
 #define DEFAULT_NR_LOOPS 10
 
 /* we have 3 tests at the moment */
-#define MAX_TESTS 3
+#define MAX_TESTS 4 
 
 /* default block size for test 2, in bytes */
 #define DEFAULT_BLOCK_SIZE 262144
 
 /* test types */
-#define TEST_MEMCPY 0
-#define TEST_DUMB 1
-#define TEST_MCBLOCK 2
+#define TEST_MEMCPY         0
+#define TEST_DUMB           1
+#define TEST_MCBLOCK        2
+#define TEST_ARCH_MEMCPY    3 
 
 /* version number */
 #define VERSION "1.4"
@@ -52,6 +54,170 @@
  * watch out for swap usage (or turn off swap)
  */
 
+
+
+static const char *test_name[MAX_TESTS] = {
+    "MEMCPY", "DUMB", "MCBLOCK", "AMEMCPY" };
+/* whats tests to run (-t x) */
+static int tests[MAX_TESTS];
+/* suppress extra messages */
+static int quiet = 0;
+/* show average */
+static int showavg = 1; 
+/* how many runs to average? */
+static int nr_loops=DEFAULT_NR_LOOPS;
+/* MiBytes transferred == array size in MiB */
+static double mt = 0;
+/* number of threads */
+static int mt_num = 1;
+/* number of cores */
+static int num_cores = 0;
+static int core_factor = 1;
+/* fixed memcpy block size for -t2 */
+unsigned long long block_size=DEFAULT_BLOCK_SIZE;
+unsigned long long asize=0; /* array size (elements in array) */
+
+void run_test(int tid);
+
+__attribute__((noinline)) void *arch_memcpy(void *dest, const void *src, size_t n)
+{
+    register void *ret asm ("rax") = dest;
+    asm volatile ("movq     %rdi, %rax\n\t"
+                  "movq     %rdx, %rcx\n\t"
+                  "shrq     $3, %rcx\n\t"
+                  "andl     $7, %edx\n\t"
+                  "rep      movsq\n\t"
+                  "movl     %edx, %ecx\n\t"
+                  "rep      movsb\n\t"
+            );
+    return ret;
+}
+
+#define CONFIG_MT_MAX_THREADS   4
+
+double *data[CONFIG_MT_MAX_THREADS][MAX_TESTS];
+static pthread_t            mt_threads[CONFIG_MT_MAX_THREADS];
+static pthread_barrier_t    mt_barrier;
+static double               mt_ave[CONFIG_MT_MAX_THREADS][MAX_TESTS];
+
+static void mt_bar(void)
+{
+    int ret = 0;
+    if (mt_num == 1) return;
+    ret = pthread_barrier_wait(&mt_barrier);
+    if (ret != 0 && ret != PTHREAD_BARRIER_SERIAL_THREAD) {
+        printf("barrier error %d\n", ret);
+        exit(1);
+    }
+}
+
+void *  mt_worker(void *arg)
+{
+    int tid = (arg - (void *)mt_threads) / sizeof(pthread_t);
+    int ret = 0;
+    cpu_set_t cs;
+    CPU_ZERO(&cs);
+    CPU_SET(tid * core_factor, &cs);
+    ret = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cs);
+    if (ret) {
+        printf("Binding thread %d to core %d failed\n", tid, tid * core_factor);
+        exit(1);
+    }
+    printf("Bound thread %d to core %d\n", tid, tid * core_factor);
+    mt_bar();
+    run_test(tid);
+    mt_bar();
+
+    return 0;
+}
+
+/* collect data for per thread per run */
+static void mt_collect_data(int tid, int run, int type, double te)
+{
+    data[tid][type][run] = te; 
+}
+
+static int mt_init(void)
+{
+    int ret = 0;
+    int i = 0;
+    int j = 0;
+
+    printf("Number of Threads %d\n", mt_num);
+    ret = pthread_barrier_init(&mt_barrier, 0, mt_num);
+    if (ret) { printf("init barrier error %d\n", ret); return ret; }
+
+    cpu_set_t cs;
+    CPU_ZERO(&cs);
+    sched_getaffinity(0, sizeof(cs), &cs);
+
+    /* assuming 8 cores max */
+    for (i = 0; i < 8; i++)  {
+        if (CPU_ISSET(i, &cs)) {
+            printf("Core %d\n", i);
+            num_cores++;
+        }
+    }
+
+    printf("We have %d cores \n", num_cores);
+    
+    if (num_cores < mt_num) {
+        printf("The number of available cores %d is less than required threads %d\n", num_cores, mt_num);
+        exit(1);
+    }
+
+    for (i = 0; i < mt_num; i++) {
+        ret = pthread_create(&mt_threads[i], 0, mt_worker, &mt_threads[i]);
+        if (ret) return ret;
+        for (j = 0; j < MAX_TESTS; j++) {
+            data[i][j] = (double *)malloc(sizeof(double) * nr_loops);
+            if (data[i][j] == 0) {
+                printf("alloc data error\n");
+                return 1;
+            }
+            bzero(data[i][j], sizeof(double) * nr_loops);
+        }
+    }
+
+    return 0; 
+}
+
+void printout(double te, double mt, int type);
+static void mt_wait(void)
+{
+    int i = 0;
+    int j = 0;
+    int k = 0;
+    double sum = 0;
+
+    for (i = 0; i < mt_num; i++) {
+        pthread_join(mt_threads[i], 0);
+    }
+
+    for (i = 0; i < mt_num; i++) {
+        printf("\n-- result for thread %d --\n", i);
+        for (j = 0; j < MAX_TESTS; j++) {
+            sum = 0;
+            for (k = 0; k < nr_loops; k++) {
+                if (data[i][j][k] != 0) {
+                    printf("%d\t", k);
+                    printout(data[i][j][k], mt, j);
+                    sum += data[i][j][k];
+                }
+            }
+
+            if (showavg && sum != 0) {
+                printf("AVG\t");
+                printout(sum / nr_loops, mt, j);
+                mt_ave[i][j] = (mt * 8 * 1024 * 1024) / 1000 / 1000 / (sum / nr_loops); 
+            }
+
+        }
+
+        printf("-- end of result for thread %d -- \n", i);
+    }
+}
+
 void usage()
 {
     printf("mbw memory benchmark v%s, https://github.com/raas/mbw\n", VERSION);
@@ -63,6 +229,7 @@ void usage()
     printf("	-t%d: dumb (b[i]=a[i] style) test\n", TEST_DUMB);
     printf("	-t%d: memcpy test with fixed block size\n", TEST_MCBLOCK);
     printf("	-b <size>: block size in bytes for -t2 (default: %d)\n", DEFAULT_BLOCK_SIZE);
+    printf("\t-T <num_threads>: running the benchmark concurrently in multiple threads\n");
     printf("	-q: quiet (print statistics only)\n");
     printf("(will then use two arrays, watch out for swapping)\n");
     printf("'Bandwidth' is amount of data copied over the time this operation took.\n");
@@ -111,13 +278,19 @@ double worker(unsigned long long asize, long *a, long *b, int type, unsigned lon
 
     if(type==TEST_MEMCPY) { /* memcpy test */
         /* timer starts */
+        mt_bar();
+
         gettimeofday(&starttime, NULL);
         memcpy(b, a, array_bytes);
         /* timer stops */
         gettimeofday(&endtime, NULL);
+
+        mt_bar();
     } else if(type==TEST_MCBLOCK) { /* memcpy block test */
         char* aa = (char*)a;
         char* bb = (char*)b;
+        mt_bar();
+
         gettimeofday(&starttime, NULL);
         for (t=array_bytes; t >= block_size; t-=block_size, aa+=block_size){
             bb=mempcpy(bb, aa, block_size);
@@ -126,12 +299,25 @@ double worker(unsigned long long asize, long *a, long *b, int type, unsigned lon
             bb=mempcpy(bb, aa, t);
         }
         gettimeofday(&endtime, NULL);
+
+        mt_bar();
     } else if(type==TEST_DUMB) { /* dumb test */
+        mt_bar();
+        
         gettimeofday(&starttime, NULL);
         for(t=0; t<asize; t++) {
             b[t]=a[t];
         }
         gettimeofday(&endtime, NULL);
+
+        mt_bar();
+
+    } else if (type == TEST_ARCH_MEMCPY) {
+        mt_bar();
+        gettimeofday(&starttime, NULL);
+        arch_memcpy(b, a, array_bytes);
+        gettimeofday(&endtime, NULL);
+        mt_bar();
     }
 
     te=((double)(endtime.tv_sec*1000000-starttime.tv_sec*1000000+endtime.tv_usec-starttime.tv_usec))/1000000;
@@ -160,10 +346,39 @@ void printout(double te, double mt, int type)
         case TEST_MCBLOCK:
             printf("Method: MCBLOCK\t");
             break;
+        case TEST_ARCH_MEMCPY:
+            printf("Method: AMEMCPY\t");
+            break;
     }
     printf("Elapsed: %.5f\t", te);
     printf("MiB: %.5f\t", mt);
-    printf("Copy: %.3f MiB/s\n", mt/te);
+    printf("Copy: %.3f MiB/s", mt/te);
+    printf("  %.3f Mb/s\n", (mt * 8 * 1024 * 1024) / 1000 / 1000 / te);
+    return;
+}
+
+
+void run_test(int tid)
+{
+    long *a = make_array(asize);
+    long *b = make_array(asize);
+
+    unsigned long testno = 0;
+    double te; 
+    int i = 0;
+
+    for (testno = 0; testno < MAX_TESTS; testno++) {
+        if (tests[testno]) {
+            for (i = 0; i < nr_loops; i++) {
+                te = worker(asize, a, b, testno, block_size);
+                    mt_collect_data(tid, i, testno, te);
+            }
+
+        }
+    }
+
+    free(a);
+    free(b);
     return;
 }
 
@@ -172,31 +387,17 @@ void printout(double te, double mt, int type)
 int main(int argc, char **argv)
 {
     unsigned int long_size=0;
-    double te, te_sum; /* time elapsed */
-    unsigned long long asize=0; /* array size (elements in array) */
-    int i;
-    long *a, *b; /* the two arrays to be copied from/to */
+    int i, j;
     int o; /* getopt options */
     unsigned long testno;
 
     /* options */
+   
+    for (i = 0; i < MAX_TESTS; i++) {
+        tests[i] = 0;
+    }
 
-    /* how many runs to average? */
-    int nr_loops=DEFAULT_NR_LOOPS;
-    /* fixed memcpy block size for -t2 */
-    unsigned long long block_size=DEFAULT_BLOCK_SIZE;
-    /* show average, -a */
-    int showavg=1;
-    /* what tests to run (-t x) */
-    int tests[MAX_TESTS];
-    double mt=0; /* MiBytes transferred == array size in MiB */
-    int quiet=0; /* suppress extra messages */
-
-    tests[0]=0;
-    tests[1]=0;
-    tests[2]=0;
-
-    while((o=getopt(argc, argv, "haqn:t:b:")) != EOF) {
+    while((o=getopt(argc, argv, "haqn:t:b:T:")) != EOF) {
         switch(o) {
             case 'h':
                 usage();
@@ -226,16 +427,27 @@ int main(int argc, char **argv)
             case 'q': /* quiet */
                 quiet=1;
                 break;
+            case 'T': /* multithreaded */
+                mt_num=strtoul(optarg, (char **)NULL, 10);
+                if (mt_num <= 0 || mt_num > CONFIG_MT_MAX_THREADS) {
+                    printf("invalid parater for thread number %d range (1-4) \n", mt_num);
+                    exit(1);
+                }
+                break;
             default:
                 break;
         }
     }
 
     /* default is to run all tests if no specific tests were requested */
-    if( (tests[0]+tests[1]+tests[2]) == 0) {
-        tests[0]=1;
-        tests[1]=1;
-        tests[2]=1;
+    int all_tests = 0;
+    for (i = 0; i< MAX_TESTS; i++) {
+        all_tests += tests[i]; 
+    }
+    if (all_tests == 0) {
+        for (i = 0; i < MAX_TESTS; i++) {
+            tests[i] = 1;
+        }
     }
 
     if(optind<argc) {
@@ -268,33 +480,22 @@ int main(int argc, char **argv)
         }
     }
 
-    a=make_array(asize);
-    b=make_array(asize);
 
-    /* ------------------------------------------------------ */
-    if(!quiet) {
-        printf("Getting down to business... Doing %d runs per test.\n", nr_loops);
+    if (mt_init()) {
+        printf("mt init error\n");
+        exit(1);
     }
-
-    /* run all tests requested, the proper number of times */
-    for(testno=0; testno<MAX_TESTS; testno++) {
-        te_sum=0;
-        if(tests[testno]) {
-            for (i=0; i<nr_loops; i++) {
-                te=worker(asize, a, b, testno, block_size);
-                te_sum+=te;
-                printf("%d\t", i);
-                printout(te, mt, testno);
-            }
-            if(showavg) {
-                printf("AVG\t");
-                printout(te_sum/nr_loops, mt, testno);
-            }
+    mt_wait();
+    for (j = 0; j < MAX_TESTS; j++) {      
+        double total = 0;
+        for (i = 0; i < mt_num; i++) {
+            total += mt_ave[i][j];
+        }
+        if (total != 0) {
+            printf("Test %s\t %d Thread(s) AVG Total COPY %f Mb/s\n", test_name[j], mt_num, total);
         }
     }
 
-    free(a);
-    free(b);
     return 0;
 }
 
