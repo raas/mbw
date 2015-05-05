@@ -35,7 +35,7 @@
  * MBW memory bandwidth benchmark
  *
  * 2006, 2012 Andras.Horvath@gmail.com
- * 2013 j.m.slocum@gmail.com 
+ * 2013 j.m.slocum@gmail.com
  * (Special thanks to Stephen Pasich)
  *
  * http://github.com/raas/mbw
@@ -57,7 +57,7 @@ void usage()
     printf("mbw memory benchmark v%s, https://github.com/raas/mbw\n", VERSION);
     printf("Usage: mbw [options] array_size_in_MiB\n");
     printf("Options:\n");
-    printf("	-n: number of runs per test\n");
+    printf("	-n: number of runs per test (0 to run forever)\n");
     printf("	-a: Don't display average\n");
     printf("	-t%d: memcpy test\n", TEST_MEMCPY);
     printf("	-t%d: dumb (b[i]=a[i] style) test\n", TEST_DUMB);
@@ -238,6 +238,11 @@ int main(int argc, char **argv)
         tests[2]=1;
     }
 
+    if( nr_loops==0 && ((tests[0]+tests[1]+tests[2]) != 1) ) {
+        printf("Error: nr_loops can be zero if only one test selected!\n");
+        exit(1);
+    }
+
     if(optind<argc) {
         mt=strtoul(argv[optind++], (char **)NULL, 10);
     } else {
@@ -280,7 +285,9 @@ int main(int argc, char **argv)
     for(testno=0; testno<MAX_TESTS; testno++) {
         te_sum=0;
         if(tests[testno]) {
-            for (i=0; i<nr_loops; i++) {
+            for (i = (!nr_loops) ? -1 :0 ;
+                 i<nr_loops;
+                 i = (!nr_loops) ? i : i+1) {
                 te=worker(asize, a, b, testno, block_size);
                 te_sum+=te;
                 printf("%d\t", i);
