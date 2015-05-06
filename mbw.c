@@ -285,9 +285,7 @@ int main(int argc, char **argv)
     for(testno=0; testno<MAX_TESTS; testno++) {
         te_sum=0;
         if(tests[testno]) {
-            for (i = (!nr_loops) ? -1 :0 ;
-                 i<nr_loops;
-                 i = (!nr_loops) ? i : i+1) {
+            for (i=0; nr_loops==0 || i<nr_loops; i++) {
                 te=worker(asize, a, b, testno, block_size);
                 te_sum+=te;
                 printf("%d\t", i);
