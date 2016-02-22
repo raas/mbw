@@ -81,6 +81,7 @@ void run_test(int tid);
 
 __attribute__((noinline)) void *arch_memcpy(void *dest, const void *src, size_t n)
 {
+#ifdef __x86_64__
     register void *ret asm ("rax") = dest;
     asm volatile ("movq     %rdi, %rax\n\t"
                   "movq     %rdx, %rcx\n\t"
@@ -91,6 +92,21 @@ __attribute__((noinline)) void *arch_memcpy(void *dest, const void *src, size_t 
                   "rep      movsb\n\t"
             );
     return ret;
+#else
+    asm volatile ("movl     %0, %%edi\n\t"
+                  "movl     %1, %%esi\n\t"
+                  "movl     %2, %%edx\n\t"
+                  "movl     %%edx, %%ecx\n\t"
+                  "shrl     $2, %%ecx\n\t"
+                  "andl     $3, %%edx\n\t"
+                  "rep      movsl    \n\t"
+                  "movl     %%edx, %%ecx\n\t"
+                  "rep      movsb    \n\t"
+                  :
+                  : "r"(dest), "r"(src), "r"(n)
+                  : "edi", "esi", "ecx", "edx", "memory");
+    return dest;
+#endif
 }
 
 #define CONFIG_MT_MAX_THREADS   4
