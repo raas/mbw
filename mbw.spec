@@ -20,17 +20,17 @@ make
 %install
 mkdir -p %{buildroot}/usr/bin
 mkdir -p %{buildroot}%{_mandir}/man1
-install -m 755 -o root -g root mbw %{buildroot}/usr/bin/mbw
-install -m 644 -o root -g root mbw.1 %{buildroot}%{_mandir}/man1/mbw.1
+install mbw %{buildroot}/usr/bin/mbw
+install mbw.1 %{buildroot}%{_mandir}/man1/mbw.1
 
 %clean
 rm -rf %{buildroot}
 
 %files
 %defattr(-,root,root)
-/usr/bin/mbw
+%attr(755,-,-) /usr/bin/mbw
 %doc
-%{_mandir}/man1/mbw.1.gz
+%attr(644,-,-) %{_mandir}/man1/mbw.1.gz
 
 %changelog
 * Mon Jan 17 2014  Andras Horvath <andras.horvath@gmail.com> 1.4-1
