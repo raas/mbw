@@ -33,7 +33,7 @@ rm -rf %{buildroot}
 %attr(644,-,-) %{_mandir}/man1/mbw.1.gz
 
 %changelog
-* Mon Jan 17 2014  Andras Horvath <andras.horvath@gmail.com> 1.4-1
+* Fri Jan 17 2014  Andras Horvath <andras.horvath@gmail.com> 1.4-1
 - Fix labeling of the displayed results
 
 * Thu Oct 03 2013 James Slocum <j.m.slocum@gmail.com> 1.3-1
@@ -43,11 +43,11 @@ rm -rf %{buildroot}
 * Sun Mar 11 2012 Andras Horvath <andras.horvath@gmail.com> 1.2-1
 - Fix MCBLOCK test: actually copy to the full buffer, not just its first $blocksize.
 
-* Tue Jul 07 2006 Andras Horvath <Andras.Horvath@cern.ch> 1.1-1
+* Fri Jul 07 2006 Andras Horvath <Andras.Horvath@cern.ch> 1.1-1
 - separate array initialization from work -> faster execution
 - getopt() options parsing: suppress average, specific tests only, no. runs 
 - added quiet mode
 - added a new test: memcpy() with given block size
 
-* Thu Apr 26 2006 Andras Horvath <Andras.Horvath@cern.ch> 1.0-1
+* Wed Apr 26 2006 Andras Horvath <Andras.Horvath@cern.ch> 1.0-1
 - initial release
