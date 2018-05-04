@@ -2,7 +2,7 @@ Summary: Memory bandwidth benchmark
 Name: mbw
 Version: 1.4
 Release: 1%{?dist}
-License: LGPL
+License: LGPLv3+
 Buildroot: %{_tmppath}/%{name}-buildroot
 Group: System Environment/Base
 Source: %{name}.tar.gz
@@ -33,6 +33,9 @@ rm -rf %{buildroot}
 %attr(644,-,-) %{_mandir}/man1/mbw.1.gz
 
 %changelog
+* Fri May 04 2018 Andras Horvath <andras.horvath@gmail.com> 1.4-2
+- Explicitly specify licence version
+
 * Fri Jan 17 2014  Andras Horvath <andras.horvath@gmail.com> 1.4-1
 - Fix labeling of the displayed results
 
