@@ -2,7 +2,7 @@ Summary: Memory bandwidth benchmark
 Name: mbw
 Version: 1.4
 Release: 1%{?dist}
-License: LGPLv3+
+License: LGPLv2.1
 Buildroot: %{_tmppath}/%{name}-buildroot
 Group: System Environment/Base
 Source: %{name}.tar.gz
