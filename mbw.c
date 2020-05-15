@@ -210,8 +210,8 @@ int main(int argc, char **argv)
                 break;
             case 't': /* test to run */
                 testno=strtoul(optarg, (char **)NULL, 10);
-                if(0>testno) {
-                    printf("Error: test number must be between 0 and %d\n", MAX_TESTS);
+                if(testno>MAX_TESTS-1) {
+                    printf("Error: test number must be between 0 and %d\n", MAX_TESTS-1);
                     exit(1);
                 }
                 tests[testno]=1;
