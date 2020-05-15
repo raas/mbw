@@ -13,6 +13,7 @@
 #include <time.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 /* how many runs to average by default */
 #define DEFAULT_NR_LOOPS 10
@@ -183,6 +184,8 @@ int main(int argc, char **argv)
 
     /* how many runs to average? */
     int nr_loops=DEFAULT_NR_LOOPS;
+    /* number of iterations for calculating the average when nr_loops is 0 */
+    int avg_count = 0;
     /* fixed memcpy block size for -t2 */
     unsigned long long block_size=DEFAULT_BLOCK_SIZE;
     /* show average, -a */
@@ -238,9 +241,13 @@ int main(int argc, char **argv)
         tests[2]=1;
     }
 
-    if( nr_loops==0 && ((tests[0]+tests[1]+tests[2]) != 1) ) {
-        printf("Error: nr_loops can be zero if only one test selected!\n");
-        exit(1);
+    if(nr_loops == 0) {
+        if(tests[0]+tests[1]+tests[2] != 1) {
+            printf("Error: nr_loops can be zero if only one test selected!\n");
+            exit(1);
+        }
+        /* Allow stdin input to reset the average, and without blocking. */
+        fcntl(0, F_SETFL, fcntl(0, F_GETFL, 0) | O_NONBLOCK);
     }
 
     if(optind<argc) {
@@ -290,6 +297,25 @@ int main(int argc, char **argv)
                 te_sum+=te;
                 printf("%d\t", i);
                 printout(te, mt, testno);
+                /* 0 never terminates, print the curent average every loop */
+                if(nr_loops==0 && showavg)
+                {
+                    char c[80];
+                    ++avg_count;
+                    printf("AVG %d\t", avg_count);
+                    printout(te_sum/avg_count, mt, testno);
+                    /* any input resets the average, read all input available,
+                     * in practice the input isn't likely raw, so press enter.*/
+                    while(read(0, c, sizeof(c)) > 0)
+                    {
+                        if(te_sum)
+                        {
+                            printf("Resetting average\n");
+                        }
+                        te_sum = 0;
+                        avg_count = 0;
+                    }
+                }
             }
             if(showavg) {
                 printf("AVG\t");
