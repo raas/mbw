@@ -29,7 +29,7 @@
 #define TEST_MCBLOCK 2
 
 /* version number */
-#define VERSION "1.4"
+#define VERSION "1.5"
 
 /*
  * MBW memory bandwidth benchmark
@@ -116,14 +116,14 @@ double worker(unsigned long long asize, long *a, long *b, int type, unsigned lon
         /* timer stops */
         gettimeofday(&endtime, NULL);
     } else if(type==TEST_MCBLOCK) { /* memcpy block test */
-        char* aa = (char*)a;
-        char* bb = (char*)b;
+        char* src = (char*)a;
+        char* dst = (char*)b;
         gettimeofday(&starttime, NULL);
-        for (t=array_bytes; t >= block_size; t-=block_size, aa+=block_size){
-            bb=(char *) memcpy(bb, aa, block_size) + block_size;
+        for (t=array_bytes; t >= block_size; t-=block_size, src+=block_size){
+            dst=(char *) memcpy(dst, src, block_size) + block_size;
         }
         if(t) {
-            bb=(char *) memcpy(bb, aa, t) + t;
+            dst=(char *) memcpy(dst, src, t) + t;
         }
         gettimeofday(&endtime, NULL);
     } else if(type==TEST_DUMB) { /* dumb test */
