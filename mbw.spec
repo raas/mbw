@@ -1,8 +1,8 @@
 Summary: Memory bandwidth benchmark
 Name: mbw
-Version: 1.5
+Version: 2.0
 Release: 1%{?dist}
-License: LGPLv2.1
+License: GPL-3.0-or-later
 Buildroot: %{_tmppath}/%{name}-buildroot
 Group: System Environment/Base
 Source: %{name}.tar.gz
@@ -33,6 +33,10 @@ rm -rf %{buildroot}
 %attr(644,-,-) %{_mandir}/man1/mbw.1.gz
 
 %changelog
+* Mon Apr 17 2023 Andras Horvath <andras.horvath@gmail.com> 2.0-1
+- Migrated to GPLv3 license
+- Small build fixes and cleanups
+
 * Tue Apr 26 2022 Andras Horvath <andras.horvath@gmail.com> 1.5-1
 - New platform support (Mac)
 
